@@ -24,7 +24,7 @@ sys.path.append(str(sdk_path.resolve()))
 from Robot import RPC
 
 # ---------------------------------------------------------
-# konfig
+# config
 # ---------------------------------------------------------
 # fairino5
 ROBOT_IP = "192.168.1.2"   
@@ -38,7 +38,7 @@ rbt = RPC(ROBOT_IP)
 company=6
 device=0
 jawnumber = 1
-pos = 0         # percentage range [0~100]
+pos = 0          # percentage range [0~100]
 force = 50       # percentage [0~100]
 vel = 30         # percentage [0 to 100]
 maxtime = 10000  # waittime in ms [0~30000]
@@ -49,23 +49,24 @@ rotVel = 0
 rotTorque = 0
 
 # ---------------------------------------------------------
-# initial
+# initialize
 # ---------------------------------------------------------
 def init_robot():
-    """Stellt die Verbindung zum Roboter her und aktiviert ihn."""
+    """Connect to the robot and enable it."""
     time.sleep(0.5)
     try:
-        print(f"Verbunden mit Roboter {ROBOT_IP}")
         rbt.RobotEnable(1)
         rbt.Mode(1)  # 0 = Jog, 1 = Auto, 2 = Programm
-        print("Roboter ist bereit.")
     except Exception as e:
         print("Fehler bei der Initialisierung:", e)
         rbt.RobotEnable(0)
         sys.exit()
+    print(f"Connected to robot {ROBOT_IP}")
+    print("Robot is ready.")
+
 
 def init_gripper(openingWidth: int=70):
-    """Verbindet mit dem Greifer und aktiviert ihn."""
+    """Connects to the gripper and enables it."""
     jawnumber = 1
     ret = rbt.SetGripperConfig(company, device, softversion=0, bus=0)
     print("Configure gripper ", ret)
@@ -80,41 +81,42 @@ def init_gripper(openingWidth: int=70):
 # looking for teached points as json
 # ---------------------------------------------------------
 def load_teach_points(teach_points_file):
-    """Lädt die gespeicherten Teach Points aus einer JSON-Datei."""
+    """Load the teach points from a JSON file."""
     if not os.path.exists(teach_points_file):
-        print(f"Fehler: Datei '{teach_points_file}' wurde nicht gefunden.")
+        print(f"Error: File '{teach_points_file}' not found.")
         sys.exit()
 
     try:
         with open(teach_points_file, "r") as f:
             points = json.load(f)
-        print(f"{len(points)} Teach Points erfolgreich geladen.")
+        print(f"{len(points)} Teach Points successfully loaded.")
         return points
     except Exception as e:
-        print("Fehler beim Laden der Teach Points:", e)
+        print("Error loading Teach Points:", e)
         sys.exit()
 
 
 # ---------------------------------------------------------
 # driving
 # ---------------------------------------------------------
-
 def open_gripper(openingWidth: int=50):
     jawnumber = 1
-    print("\n--- Start der Greifer-Bewegung ---")
+    print("\n--- Open the gripper ---")
     error1 = rbt.MoveGripper(jawnumber, openingWidth, 30, 30, 10000, 0, 0, 0, 0, 0)
-    print("Greifer-Befehl Rückgabecode:", error1)
+    print("Gripper command return code:", error1)
+
 
 def close_gripper(openingWidth: int=90):
     jawnumber = 1
-    print("\n--- Start der Greifer-Bewegung ---")
+    print("\n--- Close the gripper ---")
     error1 = rbt.MoveGripper(jawnumber, openingWidth, 50, 30, 10000, 0, 0, 0, 0, 0)
-    print("Greifer-Befehl Rückgabecode:", error1)
+    print("Gripper command return code:", error1)
+
 
 def move_to_point(point_name, points):
     try:
         if point_name not in points:
-            print(f"Punkt '{point_name}' wurde nicht gefunden.")
+            print(f"Point '{point_name}' not found.")
             return False
             
         coords = [float(x) for x in points[point_name][6:12]]
@@ -124,8 +126,9 @@ def move_to_point(point_name, points):
         print(f"Punkt '{point_name}' erreicht. Rückgabewert: {ret}")
         return True
     except Exception as e:
-        print(f"Fehler beim Fahren zu Punkt '{point_name}':", e)
+        print(f"Error moving to point '{point_name}':", e)
         return False
+
 
 def move_to_rest_position(speed:int=30, acceleration: int=30):
     errorResting=0
@@ -153,7 +156,8 @@ def move_to_rest_position(speed:int=30, acceleration: int=30):
                 print("can't move: {errorMove}")
                 return errorMove
     except Exception as e:
-        print(f"Ein unerwarteter Fehler bei der Bewegung ist aufgetreten: {e}")
+        print(f"An unexpected error occurred during movement: {e}")
+
 
 def move_to_position(teach_points_file, speed: int = 30, acceleration: int = 30):
     # Vorhandene Funktion zum Laden nutzen
@@ -172,7 +176,7 @@ def move_to_position(teach_points_file, speed: int = 30, acceleration: int = 30)
     jointpos = get_joint_pos_degree()
 
     if jointpos is None:
-        print("Fehler: aktuelle Roboterposition konnte nicht gelesen werden.")
+        print("Error: Current robot position could not be read.")
         return False
     else:
         restAxisAngles[0] = jointpos[0]
@@ -187,20 +191,18 @@ def move_to_position(teach_points_file, speed: int = 30, acceleration: int = 30)
             else:
                 errorDrive = rbt.MoveJ(coords, tool=1, user=1, vel=speed, acc=acceleration)
 
-            print(f"Punkt '{point_name}' erreicht. Rückgabewert: {errorDrive}")
+            print(f"Point '{point_name}' reached. Return value: {errorDrive}")
 
         return True
 
     except Exception as e:
-        print(f"Fehler beim Fahren: {e}")
+        print(f"Error moving: {e}")
         return False
 
 
 def test_line_movement(speed: int = 10, acceleration: int = 10):
- 
      
      points = load_teach_points("test_line_movement.json")
-
 
      try:
          for idx, (point_name, values) in enumerate(points.items()):
@@ -220,17 +222,17 @@ def test_line_movement(speed: int = 10, acceleration: int = 10):
              else:
                  errorDrive = rbt.MoveL(coords, tool=1, user=1, vel=speed, acc=acceleration)
 
-             print(f"Punkt '{point_name}' erreicht. Rückgabewert: {errorDrive}")
+             print(f"Point '{point_name}' reached. Return value: {errorDrive}")
 
          return True
 
      except Exception as e:
-         print(f"Fehler beim Fahren: {e}")
+         print(f"Error moving: {e}")
          return False
+
 
 def pick_up_item_opentrons(speed: int = 10, acceleration: int = 10, dangerSpeed: int = 10):
     points = load_teach_points("pick_up_opentrons.json")
-    
 
     try:
         for idx, (point_name, values) in enumerate(points.items()):
@@ -248,13 +250,14 @@ def pick_up_item_opentrons(speed: int = 10, acceleration: int = 10, dangerSpeed:
             else:    
                 errorDrive = rbt.MoveJ(coords, tool=1, user=1, vel=speed, acc=acceleration)
             
-            print(f"Punkt '{point_name}' . Rückgabewert: {errorDrive}")
+            print(f"Point '{point_name}' reached. Return value: {errorDrive}")
             
         return True
 
     except Exception as e:
-        print(f"Fehler beim Fahren: {e}")
+        print(f"Error moving: {e}")
         return False
+    
 
 def release_item_opentrons(speed: int = 10, acceleration: int = 10, dangerSpeed: int = 10):
     points = load_teach_points("release_opentrons.json")
@@ -274,13 +277,14 @@ def release_item_opentrons(speed: int = 10, acceleration: int = 10, dangerSpeed:
             else:    
                 errorDrive = rbt.MoveJ(coords, tool=1, user=1, vel=speed, acc=acceleration)
             
-            print(f"Punkt '{point_name}' . Rückgabewert: {errorDrive}")
+            print(f"Point '{point_name}' reached. Return value: {errorDrive}")
             
         return True
 
     except Exception as e:
-        print(f"Fehler beim Fahren: {e}")
+        print(f"Error moving: {e}")
         return False
+
 
 def get_joint_pos_degree():
     try:
@@ -289,11 +293,11 @@ def get_joint_pos_degree():
             return joint_position_degree
         else:
             # Der RPC-Befehl ist angekommen, aber der Roboter meldet einen Fehler
-            print(f"Fehler beim Abrufen der Gelenkinformationen: {error}")
+            print(f"Error fetching joint information: {error}")
             return None
     except Exception as e:
         # Der RPC-Befehl konnte nicht ausgeführt werden (z.B. Verbindung verloren)
-        print(f"Ein unerwarteter Fehler ist aufgetreten: {e}")
+        print(f"An unexpected error occurred: {e}")
         return None
 
 def shutdown_robot():
@@ -302,40 +306,37 @@ def shutdown_robot():
         rbt.RobotEnable(0)
         print("Roboter disabled.")
     except:
-        print("Fehler beim Trennen der Verbindung.")
+        print("Error occurred while disconnecting the robot.")
+
 
 def pick_up_pickupstation(speed: int = 10, acceleration: int = 10, dangerSpeed: int =10):
-    points = load_teach_points("pick_up_pickupstation.json")
-
+    points = load_teach_points("pickup-pickup-station.json")
 
     try:
         for idx, (point_name, values) in enumerate(points.items()):
             coords = [float(x) for x in values[6:12]]
             coordsLine = [float(x) for x in values[0:6]]
-            
-            if idx<=2:
-                errorDrive = rbt.MoveJ(coords, tool=1, user=1, vel=speed, acc=acceleration)
-            elif idx==3:
-                #errorDrive = rbt.MoveL(coordsLine, tool=1, user=1, vel=dangerSpeed, acc=acceleration)
+
+            if point_name.lower().endswith("open-gripper"):
+                # errorDrive = rbt.MoveL(coordsLine, tool=1, user=1, vel=dangerSpeed, acc=acceleration)
                 errorDrive = rbt.MoveJ(coords, tool=1, user=1, vel=speed, acc=acceleration)
                 open_gripper()
-            elif idx==4:
+            elif point_name.lower().endswith("close-gripper"):
+                # errorDrive = rbt.MoveL(coordsLine, tool=1, user=1, vel=dangerSpeed, acc=acceleration)
+                errorDrive = rbt.MoveJ(coords, tool=1, user=1, vel=speed, acc=acceleration)
                 close_gripper()
-                #errorDrive = rbt.MoveL(coordsLine, tool=1, user=1, vel=dangerSpeed, acc=acceleration)
+            else:
+                # errorDrive = rbt.MoveL(coordsLine, tool=1, user=1, vel=speed, acc=acceleration)
                 errorDrive = rbt.MoveJ(coords, tool=1, user=1, vel=speed, acc=acceleration)
-            elif idx==5:
-                #errorDrive = rbt.MoveL(coordsLine, tool=1, user=1, vel=speed, acc=acceleration)
-                errorDrive = rbt.MoveJ(coords, tool=1, user=1, vel=speed, acc=acceleration)
-            else:    
-                errorDrive = rbt.MoveJ(coords, tool=1, user=1, vel=speed, acc=acceleration)
-            
-            print(f"Punkt '{point_name}' Rückgabewert: {errorDrive}")
+
+            print(f"Point '{point_name}' reached. Return value: {errorDrive}")
             
         return True
 
     except Exception as e:
-        print(f"Fehler beim Fahren: {e}")
+        print(f"Error moving: {e}")
         return False
+
 
 def release_item_microscope(speed: int = 10, acceleration: int = 10, dangerSpeed: int =10):
     points = load_teach_points("release_microscope.json")
@@ -357,12 +358,12 @@ def release_item_microscope(speed: int = 10, acceleration: int = 10, dangerSpeed
             else:    
                 errorDrive = rbt.MoveJ(coords, tool=1, user=1, vel=speed, acc=acceleration)
             
-            print(f"Punkt '{point_name}' erreicht. Rückgabewert: {errorDrive}")
+            print(f"Point '{point_name}' reached. Return value: {errorDrive}")
             
         return True
     
     except Exception as e:
-        print(f"Fehler beim Fahren: {e}")
+        print(f"Error moving: {e}")
         return False
 
 def pick_up_microscope(speed: int = 10, acceleration: int = 10, dangerSpeed: int =10):
@@ -386,12 +387,12 @@ def pick_up_microscope(speed: int = 10, acceleration: int = 10, dangerSpeed: int
                 
             
             
-            print(f"Punkt '{point_name}' erreicht. Rückgabewert: {errorDrive}")
+            print(f"Point '{point_name}' reached. Return value: {errorDrive}")
             
         return True
 
     except Exception as e:
-        print(f"Fehler beim Fahren: {e}")
+        print(f"Error moving: {e}")
         return False
 
 def release_item_pickupstation(speed: int = 10, acceleration: int = 10, dangerSpeed: int =10):
@@ -418,22 +419,22 @@ def release_item_pickupstation(speed: int = 10, acceleration: int = 10, dangerSp
             else:    
                 errorDrive = rbt.MoveJ(coords, tool=1, user=1, vel=speed, acc=acceleration)
             
-            print(f"Punkt '{point_name}'. Rückgabewert: {errorDrive}")
+            print(f"Point '{point_name}' reached. Return value: {errorDrive}")
             
         return True
 
     except Exception as e:
-        print(f"Fehler beim Fahren: {e}")
+        print(f"Error moving: {e}")
         return False
 
 # ---------------------------------------------------------
-# Hauptprogramm
+# Main
 # ---------------------------------------------------------
 if __name__ == "__main__":
-    # Roboter initialisieren
+    # initialize the robot and gripper
     init_robot()
     init_gripper()
-#%%  
+
     pick_up_pickupstation(40, 70, 10)
     # release_item_pickupstation(50, 70, 10)
     # pick_up_item_opentrons(10, 70, 10)
@@ -442,8 +443,5 @@ if __name__ == "__main__":
     # sleep(1000)
     # pick_up_microscope(100, 70, 5)
     
-    
-    
-#%%
-    # Verbindung trennen
-    #shutdown_robot()
+    # Disconnect the robot
+    # shutdown_robot()
