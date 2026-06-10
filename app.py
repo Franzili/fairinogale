@@ -178,7 +178,6 @@ def load_teach_points(teach_points_file) -> Optional[Dict[str, List[float]]]:
 # driving
 # ---------------------------------------------------------
 
-
 def open_gripper(openingWidth: int = 50):
     jawnumber = 1
     print("\n--- Starting gripper movement ---")
@@ -193,150 +192,65 @@ def close_gripper(openingWidth: int = 95):
     print("Gripper command return code:", error1)
 
 
-def move_to_point(point_name, points):
-    try:
-        if point_name not in points:
-            print(f"Point '{point_name}' not found.")
-            return False
-
-        coords = [float(x) for x in points[point_name][6:12]]
-
-        print(f"Moving to point '{point_name}': {coords}")
-        ret = rbt.MoveJ(coords, TOOL, USER, vel=SPEED)
-        print(f"Point '{point_name}' reached. Return value: {ret}")
-        return True
-    except Exception as e:
-        print(f"Error moving to point '{point_name}':", e)
-        return False
-
-
-def move_to_position(teach_points_file, speed: int = 30, acceleration: int = 30):
-    # Vorhandene Funktion zum Laden nutzen
-    points = load_teach_points(teach_points_file)
-    if points is None:
-        return False
-
-    # Ruheposition vorbereiten
-    restAxisAngles = [
-        None,  # j1
-        -63,  # j2
-        -139,  # j3
-        -158,  # j4
-        -90,  # j5
-        135,  # j6
-    ]
-
-    jointpos = get_joint_pos_degree()
-
-    if jointpos is None:
-        print("Error: Current robot position could not be read.")
-        return False
-    else:
-        restAxisAngles[0] = jointpos[0]
-
-    try:
-        for idx, (point_name, values) in enumerate(points.items()):
-            coords = [float(x) for x in values[6:12]]
-
-            if idx == 0 and point_name.lower() == "start":
-                restAxisAngles[0] = coords[0]
-                errorDrive = rbt.MoveJ(
-                    restAxisAngles, tool=1, user=1, vel=speed, acc=acceleration
-                )
-            else:
-                errorDrive = rbt.MoveJ(
-                    coords, tool=1, user=1, vel=speed, acc=acceleration
-                )
-
-            print(f"Point '{point_name}' reached. Return value: {errorDrive}")
-
-        return True
-
-    except Exception as e:
-        print(f"Error while moving: {e}")
-        return False
-
-
-def pick_up_item_opentrons(
-    speed: int = 10, acceleration: int = 10, dangerSpeed: int = 10
-):
-    points = load_teach_points("./control_points/pick_opentrons.json")
+def execute_pick_up_movement(points: dict, speed: int=50, danger_speed: int=10, acceleration: int=30):
+    points = load_teach_points(points)
 
     try:
         for idx, (point_name, values) in enumerate(points.items()):
             coords = [float(x) for x in values[6:12]]
             coordsLine = [float(x) for x in values[0:6]]
+            move_speed = speed
 
-            if idx == 2:
+            if point_name.lower().endswith("danger") or point_name.lower().endswith("gripper"):
+                move_speed = danger_speed
+            
+            if point_name.lower().endswith("open-gripper"):
+                errorDrive = rbt.MoveJ(coords, tool=1, user=1, vel=move_speed, acc=acceleration)
                 open_gripper()
-                errorDrive = rbt.MoveL(
-                    coordsLine, tool=1, user=1, vel=dangerSpeed, acc=acceleration
-                )
-            elif idx == 3:
+            elif point_name.lower().endswith("close-gripper"):
+                errorDrive = rbt.MoveJ(coords, tool=1, user=1, vel=move_speed, acc=acceleration)
                 close_gripper()
-                errorDrive = rbt.MoveL(
-                    coordsLine, tool=1, user=1, vel=dangerSpeed, acc=acceleration
-                )
             else:
-                errorDrive = rbt.MoveJ(
-                    coords, tool=1, user=1, vel=speed, acc=acceleration
-                )
-
-            print(f"Point '{point_name}'. Return value: {errorDrive}")
-
+                errorDrive = rbt.MoveJ(coords, tool=1, user=1, vel=move_speed, acc=acceleration)
+            
+            print(f"Point '{point_name}' reached. Return value: {errorDrive}")
+            
         return True
 
     except Exception as e:
-        print(f"Error while moving: {e}")
+        print(f"Error moving: {e}")
         return False
+    
 
-
-def release_item_opentrons(
-    speed: int = 10, acceleration: int = 10, dangerSpeed: int = 10
-):
-    points = load_teach_points("./control_points/release_opentrons.json")
+def execute_release_movement(points: dict, speed: int=50, danger_speed: int=10, acceleration: int=30):
+    points = load_teach_points(points)
+    points = dict(reversed(list(points.items())))
 
     try:
         for idx, (point_name, values) in enumerate(points.items()):
             coords = [float(x) for x in values[6:12]]
             coordsLine = [float(x) for x in values[0:6]]
+            move_speed = speed
 
-            if idx == 2:
-                errorDrive = rbt.MoveL(
-                    coordsLine, tool=1, user=1, vel=dangerSpeed, acc=acceleration
-                )
+            if point_name.lower().endswith("danger") or point_name.lower().endswith("gripper"):
+                move_speed = danger_speed
+            
+            if point_name.lower().endswith("open-gripper"):
+                errorDrive = rbt.MoveJ(coords, tool=1, user=1, vel=move_speed, acc=acceleration)
+                close_gripper()
+            elif point_name.lower().endswith("close-gripper"):
+                errorDrive = rbt.MoveJ(coords, tool=1, user=1, vel=move_speed, acc=acceleration)
                 open_gripper()
-            elif idx == 3:
-                errorDrive = rbt.MoveL(
-                    coordsLine, tool=1, user=1, vel=dangerSpeed, acc=acceleration
-                )
             else:
-                errorDrive = rbt.MoveJ(
-                    coords, tool=1, user=1, vel=speed, acc=acceleration
-                )
-
-            print(f"Point '{point_name}'. Return value: {errorDrive}")
-
+                errorDrive = rbt.MoveJ(coords, tool=1, user=1, vel=move_speed, acc=acceleration)
+            
+            print(f"Point '{point_name}' reached. Return value: {errorDrive}")
+            
         return True
 
     except Exception as e:
-        print(f"Error while moving: {e}")
+        print(f"Error moving: {e}")
         return False
-
-
-def get_joint_pos_degree():
-    try:
-        error, joint_position_degree = rbt.GetActualJointPosDegree()
-        if error == 0:
-            return joint_position_degree
-        else:
-            # The RPC command arrived, but the robot reported an error
-            print(f"Error retrieving joint information: {error}")
-            return None
-    except Exception as e:
-        # The RPC command could not be executed (e.g. connection lost)
-        print(f"An unexpected error occurred: {e}")
-        return None
 
 
 def shutdown_robot():
@@ -350,234 +264,74 @@ def shutdown_robot():
         print("Error disconnecting.")
 
 
-def pick_up_pickupstation(
-    speed: int = 10, acceleration: int = 10, dangerSpeed: int = 10
-):
-    points = load_teach_points("./control_points/pick_up_pickupstation.json")
-
-    try:
-        for idx, (point_name, values) in enumerate(points.items()):
-            coords = [float(x) for x in values[6:12]]
-            coordsLine = [float(x) for x in values[0:6]]
-
-            if idx <= 2:
-                errorDrive = rbt.MoveJ(
-                    coords, tool=1, user=1, vel=speed, acc=acceleration
-                )
-            elif idx == 3:
-                open_gripper()
-                errorDrive = rbt.MoveL(
-                    coordsLine, tool=1, user=1, vel=dangerSpeed, acc=acceleration
-                )
-            elif idx == 4:
-                close_gripper()
-                errorDrive = rbt.MoveL(
-                    coordsLine, tool=1, user=1, vel=dangerSpeed, acc=acceleration
-                )
-            elif idx == 5:
-                errorDrive = rbt.MoveL(
-                    coordsLine, tool=1, user=1, vel=speed, acc=acceleration
-                )
-            else:
-                errorDrive = rbt.MoveJ(
-                    coords, tool=1, user=1, vel=speed, acc=acceleration
-                )
-
-            print(f"Point '{point_name}'. Return value: {errorDrive}")
-
-        return True
-
-    except Exception as e:
-        print(f"Error while moving: {e}")
-        return False
-
-
-def release_item_microscope(
-    speed: int = 10, acceleration: int = 10, dangerSpeed: int = 10
-):
-    points = load_teach_points("./control_points/release_microscope.json")
-
-    try:
-        for idx, (point_name, values) in enumerate(points.items()):
-            coords = [float(x) for x in values[6:12]]
-            coordsLine = [float(x) for x in values[0:6]]
-
-            if idx == 2:
-                errorDrive = rbt.MoveL(
-                    coordsLine, tool=1, user=1, vel=speed, acc=acceleration
-                )
-            elif idx == 3:
-                errorDrive = rbt.MoveL(
-                    coordsLine, tool=1, user=1, vel=speed, acc=acceleration
-                )
-                open_gripper()
-            elif idx == 4:
-                errorDrive = rbt.MoveL(
-                    coordsLine, tool=1, user=1, vel=speed, acc=acceleration
-                )
-            elif idx == 5:
-                errorDrive = rbt.MoveL(
-                    coordsLine, tool=1, user=1, vel=speed, acc=acceleration
-                )
-            else:
-                errorDrive = rbt.MoveJ(
-                    coords, tool=1, user=1, vel=speed, acc=acceleration
-                )
-
-            print(f"Point '{point_name}'. Return value: {errorDrive}")
-
-        return True
-
-    except Exception as e:
-        print(f"Error while moving: {e}")
-        return False
-
-
-def pick_up_microscope(speed: int = 10, acceleration: int = 10, dangerSpeed: int = 10):
-    points = load_teach_points("./control_points/pick_microscope.json")
-
-    try:
-        for idx, (point_name, values) in enumerate(points.items()):
-            coords = [float(x) for x in values[6:12]]
-            coordsLine = [float(x) for x in values[0:6]]
-
-            if idx == 3:
-                open_gripper()
-                errorDrive = rbt.MoveL(
-                    coordsLine, tool=1, user=1, vel=dangerSpeed, acc=acceleration
-                )
-            elif idx == 4:
-                close_gripper()
-                errorDrive = rbt.MoveL(
-                    coordsLine, tool=1, user=1, vel=dangerSpeed, acc=acceleration
-                )
-            elif idx == 5:
-                errorDrive = rbt.MoveL(
-                    coordsLine, tool=1, user=1, vel=dangerSpeed, acc=acceleration
-                )
-            else:
-                errorDrive = rbt.MoveJ(
-                    coords, tool=1, user=1, vel=speed, acc=acceleration
-                )
-
-            print(f"Point '{point_name}'. Return value: {errorDrive}")
-
-        return True
-
-    except Exception as e:
-        print(f"Error while moving: {e}")
-        return False
-
-
-def release_item_pickupstation(
-    speed: int = 10, acceleration: int = 10, dangerSpeed: int = 10
-):
-    points = load_teach_points("./control_points/release_pickupstation.json")
-
-    try:
-        for idx, (point_name, values) in enumerate(points.items()):
-            coords = [float(x) for x in values[6:12]]
-            coordsLine = [float(x) for x in values[0:6]]
-
-            if idx <= 1:
-                errorDrive = rbt.MoveJ(
-                    coords, tool=1, user=1, vel=speed, acc=acceleration
-                )
-            elif idx == 4:
-                open_gripper()
-                errorDrive = rbt.MoveL(
-                    coordsLine, tool=1, user=1, vel=speed, acc=acceleration
-                )
-            elif idx == 2:
-                errorDrive = rbt.MoveL(
-                    coordsLine, tool=1, user=1, vel=dangerSpeed, acc=acceleration
-                )
-            elif idx == 3:
-                errorDrive = rbt.MoveL(
-                    coordsLine, tool=1, user=1, vel=dangerSpeed, acc=acceleration
-                )
-            else:
-                errorDrive = rbt.MoveJ(
-                    coords, tool=1, user=1, vel=speed, acc=acceleration
-                )
-
-            print(f"Point '{point_name}'. Return value: {errorDrive}")
-
-        return True
-
-    except Exception as e:
-        print(f"Error while moving: {e}")
-        return False
-
-
-@register(sync=global_sync)
-def pickup_slide_from_pickupstation():
+@register()
+def release_at_opentrons(sample: str, speed: int = 40, acceleration: int = 30, dangerSpeed: int = 5):
+    """Move the samples into the Opentrons."""
     if not init():
         print("Could not start routine. Exiting.")
         return
-    print("Picking up slide from pickup station")
-    pick_up_pickupstation(speed=40, acceleration=50, dangerSpeed=10)
+    # release samples in Opentrons
+    execute_release_movement(
+        points="./control-points/pick_up_opentrons_{}.json".format(sample), 
+        speed=20,
+        danger_speed=3,
+        acceleration=30
+        )
 
-@register(sync=global_sync)
-def move_slide_to_opentron():
+
+@register()
+def pick_up_opentrons(sample: str, speed: int = 40, acceleration: int = 30, dangerSpeed: int = 5):
+    """Pick up the samples from the Opentrons."""
     if not init():
         print("Could not start routine. Exiting.")
         return
-    print("Moving slide to opentron")
-    release_item_opentrons(speed=40, acceleration=50, dangerSpeed=10)
+    # pick up samples from Opentrons
+    execute_pick_up_movement(
+        points="./control-points/pick_up_opentrons_{}.json".format(sample), 
+        speed=20,
+        danger_speed=3,
+        acceleration=30
+        )
 
 
-@register(sync=global_sync)
-def pickup_slide_from_opentron():
+@register()
+def release_at_frame(sample: str, speed: int = 40, acceleration: int = 30, dangerSpeed: int = 5):
+    """Move the samples onto the FRAME."""
     if not init():
         print("Could not start routine. Exiting.")
         return
-    print("Picking up slide from opentron")
-    pick_up_item_opentrons(speed=40, acceleration=50, dangerSpeed=10)
+    execute_release_movement(
+        points="./control-points/pick_up_frame.json",
+        speed=40,
+        danger_speed=5,
+        acceleration=30
+        )
 
 
-@register(sync=global_sync)
-def move_slide_to_microscope():
+@register()
+def pick_up_frame(sample: str, speed: int = 40, acceleration: int = 30, dangerSpeed: int = 5):
+    """Pick up the samples from the FRAME."""
     if not init():
         print("Could not start routine. Exiting.")
         return
-    print("Moving slide to microscope")
-    release_item_microscope(speed=40, acceleration=50, dangerSpeed=10)
-
-@register(sync=global_sync)
-def pickup_slide_from_microscope():
+    # pick up samples from FRAME
+    execute_pick_up_movement(
+        points="./control-points/pick_up_frame.json",
+        speed=40,
+        danger_speed=5,
+        acceleration=30
+        )
+    
+    
+@register()
+def init_robot_and_gripper():
+    """Initialize the robot and gripper."""
     if not init():
-        print("Could not start routine. Exiting.")
-        return
-    print("Picking up slide from microscope")
-    pick_up_microscope(speed=40, acceleration=50, dangerSpeed=10)
-
-
-@register(sync=global_sync)
-def move_slide_to_pickupstation():
-    if not init():
-        print("Could not start routine. Exiting.")
-        return
-    print("Moving slide to pickup station")
-    release_item_pickupstation(speed=40, acceleration=50, dangerSpeed=10)
-
-@register(sync=global_sync)
-def shutdown():
-    shutdown_robot()
-
-@register(sync=global_sync)
-def complete_sequence_once():
-    if not init():
-        print("Could not start routine. Exiting.")
-        return
-    print("Completing sequence once")
-    pickup_slide_from_pickupstation()
-    move_slide_to_opentron()
-    pickup_slide_from_opentron()
-    move_slide_to_microscope()
-    pickup_slide_from_microscope()
-    move_slide_to_pickupstation()
-    shutdown_robot()
+        print("Initialization failed. Exiting.")
+    init_robot()
+    init_gripper()
+    print("Robot and gripper initialized successfully.")
+    
 
 if __name__ == "__main__":
     app_name = os.getenv("ARKITEKT_APPNAME", "arkirino")
